@@ -1,19 +1,37 @@
 #!/bin/bash
-echo "Enter Host IP"
-read HOST
-echo "Enter Login Username"
-read USER
-echo "Enter Login Password"
-read PASSWD
-echo "Enter DB name"
-read DB1
-#DB_COLLECTIONS=$(mongo $DB --quiet --eval "db.getCollectionNames().join(' ')" --host 127.0.0.1:27017 -u the_username -p the_password --authenticationDatabase=admin)
-#custom DB collection
+
+# Prompt for MongoDB connection string
+echo "Enter MongoDB connection string (source):"
+read MONGO_URI_SRC
+
+# Ensure the connection string is not empty
+if [[ -z "$MONGO_URI_SRC" ]]; then
+    echo "Error: MongoDB connection string is required."
+    exit 1
+fi
+
+# Extract the database name from the connection string
+DB1=$(echo "$MONGO_URI_SRC" | sed -n 's#.*/\([a-zA-Z0-9_-]*\)?.*#\1#p')
+
+if [[ -z "$DB1" ]]; then
+    echo "Error: Could not extract the database name from the connection string."
+    exit 1
+fi
+
+# Custom DB collections from collections.txt
+if [[ ! -f "collections.txt" ]]; then
+    echo "Error: collections.txt file not found."
+    exit 1
+fi
+
 DB_COLLECTIONS=(`cat collections.txt`)
 
-for collection in ${DB_COLLECTIONS[@]}}; do
+for collection in ${DB_COLLECTIONS[@]}; do
     echo "Exporting $DB1/$collection ..."
-    sudo mongoexport --db=$DB1 --collection=$collection --out=$collection.json --host $HOST:27017 -u $USER -p $PASSWD --authenticationDatabase=admin
+    if ! sudo mongoexport --uri="$MONGO_URI_SRC" --collection="$collection" --out="$collection.json"; then
+        echo "Error: Failed to export collection $collection."
+        exit 1
+    fi
 done
 
-
+echo "Export process completed successfully."
